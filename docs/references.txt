@@ -1,2 +1,23 @@
+### implementing
 https://www.simplilearn.com/tutorials/cryptography-tutorial/aes-encryption
 https://blog.nindalf.com/posts/implementing-aes/
+
+### Modes of operation
+https://www.youtube.com/watch?v=Rk0NIQfEXBA
+
+### CTR
+https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Counter_(CTR)
+
+### Modo CTR (Counter)
+nova proposta, cada bloco de texto claro é XOR com um contador criptografado. O contador é incrementado para cada bloco subsequente. Semelhante ao OFB, porém a realimentação é o contador. 
+
+### Galois counter Modes
+https://en.wikipedia.org/wiki/Galois/Counter_Mode
+https://www.leozqin.me/aes-chain-block-cipher-vs-galoiscounter-modes-of-operation/
+
+### AES
+https://www.youtube.com/watch?v=O4xNJsjtN6E&t=313s
+https://www.youtube.com/watch?v=A8poO23ujxA&t=68s
+https://www.youtube.com/watch?v=lnKPoWZnNNM
+https://www.youtube.com/watch?v=MTZe1HB0fJ4
+https://www.youtube.com/watch?v=NHuibtoL_qk
