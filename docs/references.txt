@@ -1,0 +1,2 @@
+https://www.simplilearn.com/tutorials/cryptography-tutorial/aes-encryption
+https://blog.nindalf.com/posts/implementing-aes/
