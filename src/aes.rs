@@ -1,5 +1,56 @@
 use crate::utils::*;
 
+pub struct AES {
+    expanded_key: [u32; 44]
+}
+
+impl AES {
+    fn new(key: &[u8]) -> AES {
+        AES {
+            expanded_key: key_expansion(key)
+        }
+    }
+
+    fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {  
+        let mut state: [u32;4] = [0;4];
+        pack(&mut state, &plain_text[0..BLOCK_SIZE]);
+        encrypt(&mut state, &self.expanded_key);
+        unpack(&mut destination[0..BLOCK_SIZE], &mut state);
+    }
+}
+
+// Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
+fn key_expansion(key: &[u8]) -> [u32;44] {
+    let mut expanded_key: [u32;44] = [0;44];
+    let mut i = 0;
+    // each round requires a 4 word key. So we need 4(10+1), 4(12+1) and 4(14+1) words in the expanded key
+
+    // first 4 words are the original key
+    for i in 0..4 {
+        expanded_key[i] = ((key[4*i] as u32) << 24) | ((key[4*i+1] as u32) << 16) | ((key[4*i+2] as u32) << 8) | (key[4*i+3] as u32);
+    }
+
+    while i < 44 {
+        expanded_key[i] = expanded_key[i-1];
+        expanded_key[i] = rotate_word_left(expanded_key[i], 1);
+        expanded_key[i] = sub_word(expanded_key[i]);
+        expanded_key[i] = expanded_key[i] ^ rcon(i/4-1);
+        expanded_key[i] = expanded_key[i] ^ expanded_key[i-4];
+
+        for j in 1..4 {
+            expanded_key[i+j] = expanded_key[i+j-1] ^ expanded_key[i+j-4];
+        }
+
+        i = i + 4
+    }
+
+    for j in (0..expanded_key.len()).step_by(4) {
+        transpose(&mut expanded_key[j..j+4])
+    }
+
+    return expanded_key;
+}
+
 // Generates an 128 bits AES Key
 fn generate_aes_key() {
 
@@ -12,6 +63,28 @@ fn add_round_key(state: &mut [u32], key: &[u32]) {
     }
 }
 
+fn rcon(i: usize) -> u32 {
+    return ((PWR_X_GALOIS_FIELD[i]) as u32) << 24
+}
+
+fn transpose(input: &mut[u32]) {
+    let mut c0: u32 = 0;
+    let mut c1: u32 = 0;
+    let mut c2: u32 = 0;
+    let mut c3: u32 = 0;
+
+    for i in 0..4 {
+        c0 = c0 | (input[i] >> 24) << (8 * (3 - i));
+        c1 = c1 | (input[i] >> 16 & 0xff) << (8 * (3 - i));
+        c2 = c2 | (input[i] >> 8 & 0xff) << (8 * (3 - i));
+        c3 = c3 | (input[i] & 0xff) << (8 * (3 - i));
+    }
+
+    input[0] = c0;
+    input[1] = c1;
+    input[2] = c2;
+    input[3] = c3;
+}
 
 // TODO: Understand this code
 fn sub_word(input: u32) -> u32{
@@ -120,12 +193,12 @@ fn inv_sub_bytes(state: &mut [u32]) {
 // 4 4-byte unsigned integers. 
 // The expanded key is based on the original key. Its 16*(rounds+1) bytes in 
 // length.
-fn encrypt(state: &mut [u32], expanded_key: &[u32], rounds: u8) {
+fn encrypt(state: &mut [u32], expanded_key: &[u32]) {
     let mut key_index = 0;
     add_round_key(state, &expanded_key[key_index .. key_index+4]);
     key_index = key_index + 4;
     
-    for _ in 0..rounds {
+    for _ in 0..(expanded_key.len()/4-2) {
         sub_bytes(state);
         shift_rows(state);
         mix_columns(state);
