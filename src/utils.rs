@@ -1,5 +1,25 @@
 // let xs: [i32; 5] = [1, 2, 3, 4, 5];
 
+
+/// Moves from 16 u8 array A.K.A 16 bytes to 32 bit array of size 4.
+/// Both have 128 bits, just in different "packages"
+pub fn pack (destination: &mut [u32], source: &[u8]) {
+	for i in 0..4 {
+		destination[i] = (source[i] as u32) << 24 | (source[i+4] as u32) << 16 | (source[i+8] as u32) << 8 | (source[i+12] as u32);
+	}
+}
+
+pub fn unpack (destination: &mut [u8], source: & [u32]) {
+	for i in 0..4 {
+		destination[i] = (source[i] >> 24) as u8;
+		destination[i+4] = ((source[i] >> 16) & 0xff) as u8;
+		destination[i+8] = ((source[i] >> 8) & 0xff) as u8;
+		destination[i+12] = (source[i] & 0xff) as u8;
+	}
+}
+
+pub static BLOCK_SIZE: usize = 16;
+
 pub static PWR_X_GALOIS_FIELD: [u8; 16] = [
     0x01,
 	0x02,
