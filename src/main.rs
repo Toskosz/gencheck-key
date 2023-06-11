@@ -1,5 +1,4 @@
-mod aes;
-mod utils;
+pub mod aes;
 
 fn main() {
     println!("Hello, world!");

@@ -1,4 +1,5 @@
-use crate::utils::*;
+mod utils;
+use crate::aes::utils::*;
 
 pub struct AES {
     expanded_key: [u32; 44]
@@ -66,7 +67,7 @@ fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
 
 // Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
 // Expands the original key to get the round keys
-fn key_expansion(key: &[u8]) -> [u32;44] {
+pub fn key_expansion(key: &[u8]) -> [u32;44] {
     // These values come from the AES standard for 128 bit keys.
     const n_words: usize = 4;
     const rounds: usize = 10;
@@ -76,8 +77,9 @@ fn key_expansion(key: &[u8]) -> [u32;44] {
     
     let mut i = 0;
     // First 4 words are the original key
-    for i in 0..n_words {
+    while i < n_words {
         expanded_key[i] = ((key[4*i] as u32) << 24) | ((key[4*i+1] as u32) << 16) | ((key[4*i+2] as u32) << 8) | (key[4*i+3] as u32);
+        i += 1;
     }
 
     while i < 4*(rounds+1) {
@@ -142,10 +144,10 @@ fn transpose(input: &mut[u32]) {
 // Substitutes each byte for the corresponding value in the SBOX
 // Joins the substituted bytes into a 32 bit word through bitwise or
 fn sub_word(input: u32) -> u32{
-    return ((SBOX[(input>>24) as usize])<<24) as u32 |
-		((SBOX[(input>>16&0xff) as usize])<<16) as u32 |
-		((SBOX[(input>>8&0xff) as usize])<<8) as u32 |
-		((SBOX[(input&0xff) as usize])) as u32;
+    return ((SBOX[(input>>24) as usize] as u32) << 24) |
+		((SBOX[(input>>16&0xff) as usize] as u32) << 16) |
+		((SBOX[(input>>8&0xff) as usize] as u32) <<8) |
+		((SBOX[(input&0xff) as usize] as u32));
 }
 
 // Substitutes each byte-row in the state matrix for the corresponding value in 
@@ -259,3 +261,35 @@ fn mix_columns(state: &mut [u32]){
 fn revert_mix_columns(state: &mut [u32]){
     manipulate_columns(state, true);
 }
+
+
+// UNIT TESTING
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_key_expansion() {
+        let key = "YELLOW SUBMARINE";
+
+        let expanded_key: [u32; 44] = [
+            0x594f5552, 0x45574249, 0x4c204d4e, 0x4c534145, 0x632c792b,
+            0x6a3d7f36, 0x22024f01, 0x4c1f5e1b, 0x6448311a, 0x162b5462, 0x8d8fc0c1, 0xbda2fce7,
+            0xca82b3a9, 0x6e451173, 0x19965697, 0x1fbd41a6, 0x4dcf7cd5, 0xe6a3b2c1, 0x3dabfd6a,
+            0xcc713096, 0x25ea9643, 0xe447f534, 0xad06fb91, 0xcfbe8e18, 0x1df76122, 0x6522d7e3,
+            0x6fd6c, 0xd56be5fd, 0x4cbbdaf8, 0x3517c023, 0x5452afc3, 0x462dc835, 0xea518b73,
+            0x1b0cccef, 0xc2903ffc, 0x72ae2d7, 0x2e7ff487, 0xaba76b84, 0xcc5c639f, 0x88a24097,
+            0x4738cc4b, 0x70d7bc38, 0x44187be4, 0x9f3d7dea
+        ];
+
+        let actual = key_expansion(key.as_bytes());
+
+        // for i in 0..expanded_key.len() {
+        //     assert_eq!(expanded_key[i], actual[i]);
+        // }
+
+        assert!(actual.iter().zip(expanded_key.iter()).all(|(a,b)| a == b), "Arrays are not equal");
+    }
+}
+
