@@ -1,7 +1,7 @@
 // let xs: [i32; 5] = [1, 2, 3, 4, 5];
 
 
-/// Moves from 16 u8 array A.K.A 16 bytes to 32 bit array of size 4.
+/// Moves from 16 u8 array A.K.A 16 bytes to 32 bit array of size 4 also 16 bytes.
 /// Both have 128 bits, just in different "packages"
 pub fn pack (destination: &mut [u32], source: &[u8]) {
 	for i in 0..4 {
