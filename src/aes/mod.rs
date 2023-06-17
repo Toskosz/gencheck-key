@@ -162,9 +162,9 @@ fn sub_bytes(state: &mut [u32]) {
 // Substitutes each byte for the corresponding value in the reverse SBOX
 // Joins the substituted bytes into a 32 bit word through bitwise or
 fn revert_sub_word(input: u32) -> u32{
-    return ((SBOX_INVERSE[(input>>24) as usize])<<24) as u32 |
-		((SBOX_INVERSE[(input>>16&0xff) as usize])<<16) as u32 |
-		((SBOX_INVERSE[(input>>8&0xff) as usize])<<8) as u32 |
+    return ((SBOX_INVERSE[(input>>24) as usize] as u32)<<24) |
+		((SBOX_INVERSE[(input>>16&0xff) as usize] as u32)<<16) |
+		((SBOX_INVERSE[(input>>8&0xff) as usize] as u32)<<8) |
 		(SBOX_INVERSE[(input&0xff) as usize]) as u32;
 }
 
@@ -240,12 +240,12 @@ fn manipulate_columns(state: &mut [u32], revert: bool) {
             new_bytes = calc_new_bytes(&column_bytes);
         }
 
-        // Used to clear the row from its existing value
+        // remove old value 
         let mut mask: u32;
 		mask = 0xff << ((3 - i) * 8);
-		mask = mask^mask;
+        mask = !mask;
 
-        // Set new values
+        // add new values
 		state[0] = (state[0] & mask) | ((new_bytes[0] as u32) << ((3 - i) * 8));
 		state[1] = (state[1] & mask) | ((new_bytes[1] as u32) << ((3 - i) * 8));
 		state[2] = (state[2] & mask) | ((new_bytes[2] as u32) << ((3 - i) * 8));
@@ -267,6 +267,7 @@ fn revert_mix_columns(state: &mut [u32]){
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
     use super::*;
 
     #[test]
@@ -284,12 +285,43 @@ mod tests {
         ];
 
         let actual = key_expansion(key.as_bytes());
-
-        // for i in 0..expanded_key.len() {
-        //     assert_eq!(expanded_key[i], actual[i]);
-        // }
-
         assert!(actual.iter().zip(expanded_key.iter()).all(|(a,b)| a == b), "Arrays are not equal");
+    }
+
+
+    #[test]
+    fn test_mix_cols() {
+        let mut input: [u32; 4] = [0xdbf201c6, 0x130a01c6, 0x532201c6, 0x455c01c6];
+        let mut expected: [u32; 4] = [0x8e9f01c6, 0x4ddc01c6, 0xa15801c6, 0xbc9d01c6];
+        
+        mix_columns(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+
+    #[test]
+    fn test_encrypt_decrypt() {
+        let key = "PURPLE SIDEKICKS";
+        let expkey = key_expansion(key.as_bytes());
+        
+        let mut input: [u32; 4] = [0; 4];
+        let mut expected: [u32; 4] = [0; 4];
+        let mut b = "polar bears rock!".as_bytes();
+        for _ in 0..10 {
+            // b = rand::thread_rng().gen::<[u8; 16]>();
+            pack(&mut input, &b);
+            pack(&mut expected, &b);
+
+            encrypt(&mut input, &expkey);
+            decrypt(&mut input, &expkey);
+            for j in 0..input.len() {
+                if input[j] != expected[j] {
+                    assert_eq!(input[j], expected[j], "Expected {} but got {}", input[j], expected[j]);
+                }
+            }
+        }
     }
 }
 
