@@ -302,6 +302,72 @@ mod tests {
 
 
     #[test]
+    fn test_revert_mix_cols(){
+        let mut input: [u32;4] = [0x8e9f01c6, 0x4ddc01c6, 0xa15801c6, 0xbc9d01c6];
+	    let mut expected: [u32;4] = [0xdbf201c6, 0x130a01c6, 0x532201c6, 0x455c01c6];
+
+        revert_mix_columns(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
+    fn test_shift_rows(){
+        let mut input: [u32;4] = [0x8e9f01c6, 0x4ddc01c6, 0xa15801c6, 0xbc9d01c6];
+	    let mut expected: [u32;4] = [0x8e9f01c6, 0xdc01c64d, 0x01c6a158, 0xc6bc9d01];
+
+        shift_rows(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
+    fn test_revert_shift_rows(){
+        let mut input: [u32;4] = [0x8e9f01c6, 0x4ddc01c6, 0xa15801c6, 0xbc9d01c6];
+	    let mut expected: [u32;4] = [0x8e9f01c6, 0xc64ddc01, 0x01c6a158, 0x9d01c6bc];
+
+        revert_shift_rows(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
+    fn test_sub_bytes(){
+        let mut input: [u32; 4] = [0x8e9ff1c6, 0x4ddce1c7, 0xa158d1c8, 0xbc9dc1c9];
+	    let mut expected: [u32; 4] = [0x19dba1b4, 0xe386f8c6, 0x326a3ee8, 0x655e78dd];
+
+        sub_bytes(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
+    fn test_revert_sub_bytes(){
+        let mut input: [u32;4] = [0x19dba1b4, 0xe386f8c6, 0x326a3ee8, 0x655e78dd];
+	    let mut expected: [u32;4] = [0x8e9ff1c6, 0x4ddce1c7, 0xa158d1c8, 0xbc9dc1c9];
+
+        revert_sub_bytes(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
+    fn test_transpose(){
+        let mut input: [u32;4] = [0x8e9f01c6, 0x4ddc01c6, 0xa15801c6, 0xbc9d01c6];
+	    let mut expected: [u32;4] = [0x8e4da1bc, 0x9fdc589d, 0x01010101, 0xc6c6c6c6];
+
+        transpose(&mut input);
+        for j in 0..input.len() {
+            assert_eq!(input[j], expected[j], "Expected {} but got {}", expected[j], input[j]);
+        }
+    }
+
+    #[test]
     fn test_encrypt_decrypt() {
         let key = "PURPLE SIDEKICKS";
         let expkey = key_expansion(key.as_bytes());
