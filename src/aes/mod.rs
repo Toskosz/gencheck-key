@@ -14,8 +14,10 @@ impl AES {
 
     fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {  
         let mut state: [u32;4] = [0;4];
+        let mut iv: [u8; 12] = generate_iv();
 
         let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
+        let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv);
 
         pack(&mut state, &plain_text[0..BLOCK_SIZE]);
         encrypt(&mut state, &self.expanded_key);
