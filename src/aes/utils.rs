@@ -18,7 +18,7 @@ pub fn unpack (destination: &mut [u8], source: & [u32]) {
 	}
 }
 
-pub static BLOCK_SIZE: usize = 16;
+pub const BLOCK_SIZE: usize = 16;
 
 pub static PWR_X_GALOIS_FIELD: [u8; 16] = [
     0x01,

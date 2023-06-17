@@ -14,6 +14,9 @@ impl AES {
 
     fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {  
         let mut state: [u32;4] = [0;4];
+
+        let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
+
         pack(&mut state, &plain_text[0..BLOCK_SIZE]);
         encrypt(&mut state, &self.expanded_key);
         unpack(&mut destination[0..BLOCK_SIZE], &mut state);
@@ -63,6 +66,17 @@ fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
     revert_shift_rows(state);
     revert_sub_bytes(state);
     add_round_key(state, &expanded_key[key_index .. key_index+4])
+}
+
+fn initial_hash_subkey(expanded_key: &[u32]) -> [u8; BLOCK_SIZE]{
+    let mut state: [u32;4] = [0;4];
+    let mut ghash_key: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    
+    pack(&mut state, &ghash_key);
+    encrypt(&mut state, &expanded_key);
+    unpack(&mut ghash_key, &mut state);
+
+    return ghash_key;
 }
 
 // Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
