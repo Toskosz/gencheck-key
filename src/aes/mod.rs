@@ -1,23 +1,31 @@
 mod utils;
 use crate::aes::utils::*;
 
-pub struct AES {
+pub struct AES_GCTR {
     expanded_key: [u32; 44]
 }
 
-impl AES {
-    fn new(key: &[u8]) -> AES {
-        AES {
+impl AES_GCTR {
+    fn new(key: &[u8]) -> AES_GCTR {
+        AES_GCTR {
             expanded_key: key_expansion(key)
         }
     }
 
-    fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {  
+    fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {
+        
+        // manipulatation to make sure plain text is a multiple of 128 bits
+
         let mut state: [u32;4] = [0;4];
-        let mut iv: [u8; 12] = generate_iv();
+        let mut iv: [u8; 12] = [0;12];
+        let mut increment: u8 = 0;
 
         let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
-        let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv);
+        let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
+        
+        increment_counter(&mut counter_input, &mut increment);
+        
+        GCTR();
 
         pack(&mut state, &plain_text[0..BLOCK_SIZE]);
         encrypt(&mut state, &self.expanded_key);
@@ -32,42 +40,31 @@ impl AES {
     }
 }
 
-// The 16-byte block, called state is represented as a slice of 
-// 4 4-byte unsigned integers. 
-// The expanded key is based on the original key. Its 16*(rounds+1) bytes in 
-// length.
-fn encrypt(state: &mut [u32], expanded_key: &[u32]) {
-    let mut key_index = 0;
-    add_round_key(state, &expanded_key[key_index .. key_index+4]);
-    key_index = key_index + 4;
+fn GCTR() {
+    let mut temp_counter_block: [u8; BLOCK_SIZE] = [0;BLOCK_SIZE];
+    temp_counter_block = 
     
-    for _ in 0..((expanded_key.len()/4)-2) {
-        sub_bytes(state);
-        shift_rows(state);
-        mix_columns(state);
-        add_round_key(state, &expanded_key[key_index .. key_index+4]);
-        key_index = key_index + 4;
-    }
-    sub_bytes(state);
-    shift_rows(state);
-    add_round_key(state, &expanded_key[key_index .. key_index+4])
 }
 
-fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
-    let mut key_index = expanded_key.len() - 4;
-    add_round_key(state, &expanded_key[key_index .. key_index+4]);
-    key_index = key_index - 4;
+fn increment_counter(counter: &mut [u8], increment: &mut u8) {
     
-    for _ in 0..(expanded_key.len()/4-2) {
-        revert_shift_rows(state);
-        revert_sub_bytes(state);
-        add_round_key(state, &expanded_key[key_index .. key_index+4]);
-        key_index = key_index - 4;
-        revert_mix_columns(state);
+    *increment = (*increment) + 1;
+    
+    for i in 0..4 {
+        counter[BLOCK_SIZE-1-i] = *increment >> 8 * i & 0xff
     }
-    revert_shift_rows(state);
-    revert_sub_bytes(state);
-    add_round_key(state, &expanded_key[key_index .. key_index+4])
+}
+
+fn initial_counter_input(iv: &[u8], increment: &mut u8) -> [u8; BLOCK_SIZE]{
+    
+    *increment = 1;
+    
+    let mut counter: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    for i in 0..iv.len(){
+        counter[i] = iv[i];
+    }
+    counter[BLOCK_SIZE-1] = *increment;
+    return counter;
 }
 
 fn initial_hash_subkey(expanded_key: &[u32]) -> [u8; BLOCK_SIZE]{
@@ -119,11 +116,6 @@ pub fn key_expansion(key: &[u8]) -> [u32;44] {
     return expanded_key;
 }
 
-// Generates an 128 bits AES Key
-fn generate_aes_key() {
-
-}
-
 // Bitwise XOR between the state and the key
 fn add_round_key(state: &mut [u32], key: &[u32]) {
     for i in 0..4 {
@@ -156,6 +148,22 @@ fn transpose(input: &mut[u32]) {
     input[3] = c3;
 }
 
+// Substitutes each byte-row in the state matrix for the corresponding value in 
+// the SBOX
+fn sub_bytes(state: &mut [u32]) {
+    for i in 0..state.len(){
+        state[i] = sub_word(state[i]);
+    }
+}
+
+// Substitutes each byte-row in the state matrix for the corresponding value in 
+// the reverse-SBOX
+fn revert_sub_bytes(state: &mut [u32]) {
+    for i in 0..state.len() {
+        state[i] = revert_sub_word(state[i])
+    }
+}
+
 // Breaks the input into 4 bytes
 // Substitutes each byte for the corresponding value in the SBOX
 // Joins the substituted bytes into a 32 bit word through bitwise or
@@ -164,14 +172,6 @@ fn sub_word(input: u32) -> u32{
 		((SBOX[(input>>16&0xff) as usize] as u32) << 16) |
 		((SBOX[(input>>8&0xff) as usize] as u32) <<8) |
 		((SBOX[(input&0xff) as usize] as u32));
-}
-
-// Substitutes each byte-row in the state matrix for the corresponding value in 
-// the SBOX
-fn sub_bytes(state: &mut [u32]) {
-    for i in 0..state.len(){
-        state[i] = sub_word(state[i]);
-    }
 }
 
 // Breaks the input into 4 bytes
@@ -184,13 +184,6 @@ fn revert_sub_word(input: u32) -> u32{
 		(SBOX_INVERSE[(input&0xff) as usize]) as u32;
 }
 
-// Substitutes each byte-row in the state matrix for the corresponding value in 
-// the reverse-SBOX
-fn revert_sub_bytes(state: &mut [u32]) {
-    for i in 0..state.len() {
-		state[i] = revert_sub_word(state[i])
-	}
-}
 
 // Rotates the word n bytes to the left.
 fn rotate_word_left(input: u32, n: usize) -> u32{
@@ -277,6 +270,51 @@ fn mix_columns(state: &mut [u32]){
 fn revert_mix_columns(state: &mut [u32]){
     manipulate_columns(state, true);
 }
+
+
+// The 16-byte block, called state is represented as a slice of 
+// 4 4-byte unsigned integers. 
+// The expanded key is based on the original key. Its 16*(rounds+1) bytes in 
+// length.
+fn encrypt(state: &mut [u32], expanded_key: &[u32]) {
+    let mut key_index = 0;
+    add_round_key(state, &expanded_key[key_index .. key_index+4]);
+    key_index = key_index + 4;
+    
+    for _ in 0..((expanded_key.len()/4)-2) {
+        sub_bytes(state);
+        shift_rows(state);
+        mix_columns(state);
+        add_round_key(state, &expanded_key[key_index .. key_index+4]);
+        key_index = key_index + 4;
+    }
+    sub_bytes(state);
+    shift_rows(state);
+    add_round_key(state, &expanded_key[key_index .. key_index+4])
+}
+
+fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
+    let mut key_index = expanded_key.len() - 4;
+    add_round_key(state, &expanded_key[key_index .. key_index+4]);
+    key_index = key_index - 4;
+    
+    for _ in 0..(expanded_key.len()/4-2) {
+        revert_shift_rows(state);
+        revert_sub_bytes(state);
+        add_round_key(state, &expanded_key[key_index .. key_index+4]);
+        key_index = key_index - 4;
+        revert_mix_columns(state);
+    }
+    revert_shift_rows(state);
+    revert_sub_bytes(state);
+    add_round_key(state, &expanded_key[key_index .. key_index+4])
+}
+
+
+
+
+
+
 
 
 // UNIT TESTING
