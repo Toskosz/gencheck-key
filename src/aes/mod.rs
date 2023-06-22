@@ -15,8 +15,6 @@ impl AES_GCTR {
     fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {
         
         // manipulatation to make sure plain text is a multiple of 128 bits
-
-        let mut state: [u32;4] = [0;4];
         let mut iv: [u8; 12] = [0;12];
         let mut increment: u8 = 0;
 
@@ -27,9 +25,7 @@ impl AES_GCTR {
         
         GCTR();
 
-        pack(&mut state, &plain_text[0..BLOCK_SIZE]);
-        encrypt(&mut state, &self.expanded_key);
-        unpack(&mut destination[0..BLOCK_SIZE], &mut state);
+        
     }
 
     fn decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
@@ -40,10 +36,27 @@ impl AES_GCTR {
     }
 }
 
-fn GCTR() {
-    let mut temp_counter_block: [u8; BLOCK_SIZE] = [0;BLOCK_SIZE];
-    temp_counter_block = 
-    
+fn GCTR(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u8) {
+
+    let mut state: [u32;4] = [0;4];
+
+    let 128_bit_blocks = plain_text.len() / 16;
+
+    let mut local_counter_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    local_counter_block.copy_from_slice(counter_block);
+
+    let mut last_encryption_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+
+    for i in 0..128_bit_blocks {
+        pack(&mut state, &local_counter_block[0..BLOCK_SIZE]);
+        encrypt(&mut state, &expanded_key);
+        unpack(&mut last_encryption_block[0..BLOCK_SIZE], &mut state);
+
+        for j in 0..BLOCK_SIZE{
+            cipher_text[(i*BLOCK_SIZE) + j] = plain_text[(i*BLOCK_SIZE) + j] ^ last_encryption_block[j];
+        }
+        increment_counter(&mut local_counter_block, &mut increment);
+    }
 }
 
 fn increment_counter(counter: &mut [u8], increment: &mut u8) {
@@ -309,12 +322,6 @@ fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
     revert_sub_bytes(state);
     add_round_key(state, &expanded_key[key_index .. key_index+4])
 }
-
-
-
-
-
-
 
 
 // UNIT TESTING
