@@ -16,7 +16,7 @@ impl AesGcm {
         
         // manipulatation to make sure plain text is a multiple of 128 bits
         let mut iv: [u8; 12] = [0;12];
-        let mut increment: u8 = 0;
+        let mut increment: u32 = 0;
 
         let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
 
@@ -74,7 +74,7 @@ fn byte_concatenation(concat: &mut[u8] ,auth_data: &[u8], cipher_text: &[u8], le
     }
 }
 
-fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u8) {
+fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u32) {
 
     let mut state: [u32;4] = [0;4];
 
@@ -97,16 +97,16 @@ fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_
     }
 }
 
-fn increment_counter(counter: &mut [u8], increment: &mut u8) {
+fn increment_counter(counter: &mut [u8], increment: &mut u32) {
     
     *increment = (*increment) + 1;
     
     for i in 0..4 {
-        counter[BLOCK_SIZE-1-i] = *increment >> 8 * i & 0xff
+        counter[BLOCK_SIZE-1-i] = (*increment >> 8 * i & 0xff) as u8;
     }
 }
 
-fn initial_counter_input(iv: &[u8], increment: &mut u8) -> [u8; BLOCK_SIZE]{
+fn initial_counter_input(iv: &[u8], increment: &mut u32) -> [u8; BLOCK_SIZE]{
     
     *increment = 1;
     
@@ -114,7 +114,7 @@ fn initial_counter_input(iv: &[u8], increment: &mut u8) -> [u8; BLOCK_SIZE]{
     for i in 0..iv.len(){
         counter[i] = iv[i];
     }
-    counter[BLOCK_SIZE-1] = *increment;
+    counter[BLOCK_SIZE-1] = *increment as u8;
     return counter;
 }
 
@@ -504,6 +504,41 @@ mod tests {
         for j in 0..output.len() {
             assert_eq!(output[j], 0x00, "Expected {} but got {}", 0x00, output[j]);
         }
+    }
+
+    #[test]
+    fn test_initial_counter_block() {
+        let iv: [u8; 12] = [0x57, 0xe4, 0x12, 0x27, 0x1d, 0x8a, 0xe7, 0x96, 0x8b, 0x6f, 0xfd, 0x38 ];
+        let mut increment :u32 = 0;
+        let mut state: [u32; 4] = [0; 4];
+        
+        let mut output = initial_counter_input(&iv, &mut increment);
+
+        for i in 0..12 {
+            assert_eq!(output[i], iv[i], "Expected {} but got {}", iv[i], output[i]);
+        }
+        for i in 12..15 {
+            assert_eq!(output[i], 0x00, "Expected {} but got {}", 0x00, output[i]);
+        }
+        assert_eq!(output[15], 0x01, "Expected {} but got {}", 0x01, output[15]);
+    }
+
+    #[test]
+    fn test_increment_counter() {
+        let iv: [u8; 12] = [0x57, 0xe4, 0x12, 0x27, 0x1d, 0x8a, 0xe7, 0x96, 0x8b, 0x6f, 0xfd, 0x38 ];
+        let mut increment :u32 = 0;
+        let mut state: [u32; 4] = [0; 4];
+        
+        let mut output = initial_counter_input(&iv, &mut increment);
+        increment_counter(&mut output, &mut increment);
+
+        for i in 0..12 {
+            assert_eq!(output[i], iv[i], "Expected {} but got {}", iv[i], output[i]);
+        }
+        for i in 12..15 {
+            assert_eq!(output[i], 0x00, "Expected {} but got {}", 0x00, output[i]);
+        }
+        assert_eq!(output[15], 0x02, "Expected {} but got {}", 0x02, output[15]);
     }
 }
 
