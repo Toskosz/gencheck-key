@@ -488,5 +488,22 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_initial_hash_subkey() {
+        let key = "PURPLE SIDEKICKS";
+        let expkey = key_expansion(key.as_bytes());
+        
+        let mut state: [u32; 4] = [0; 4];
+        let mut output = initial_hash_subkey(&expkey);
+        
+        pack(&mut state, &output);
+        decrypt(&mut state, &expkey);
+        unpack(&mut output, &mut state);
+
+        for j in 0..output.len() {
+            assert_eq!(output[j], 0x00, "Expected {} but got {}", 0x00, output[j]);
+        }
+    }
 }
 
