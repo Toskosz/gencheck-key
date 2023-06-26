@@ -101,13 +101,20 @@ fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_
 
 fn ghash(output: &mut[u8], hash_subkey: &mut[u8], data: &mut[u8], total_len: &u32) {
     let mut y: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let mut z: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
     let mut tmp: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
 
     for i in 0..(total_len/(BLOCK_SIZE as u32)) as usize {
         for j in 0..BLOCK_SIZE {
             tmp[j] = data[(i * BLOCK_SIZE) + j];
         }
+
+        xor_block(&mut y, &mut tmp);
+        galois_field_mul_128(&mut z, hash_subkey, &mut y);
+        y.copy_from_slice(&z);
     }
+
+    output.copy_from_slice(&y);
 }
 
 fn galois_field_mul_128(output: &mut [u8], hash_subkey: &mut [u8], y: &mut [u8]) {
