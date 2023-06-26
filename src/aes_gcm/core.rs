@@ -1,133 +1,5 @@
-mod utils;
-use crate::aes::utils::*;
-
-pub struct AesGcm {
-    expanded_key: [u32; 44]
-}
-
-impl AesGcm {
-    fn new(key: &[u8]) -> AesGcm {
-        AesGcm {
-            expanded_key: key_expansion(key)
-        }
-    }
-
-    fn encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8]) {
-        
-        // manipulatation to make sure plain text is a multiple of 128 bits
-        let mut iv: [u8; 12] = [0;12];
-        let mut increment: u32 = 0;
-
-        let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
-
-        let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
-        increment_counter(&mut counter_input, &mut increment);
-        
-        gctr(cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
-
-    }
-
-    fn decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
-        let mut state: [u32;4] = [0;4];
-        pack(&mut state, &cipher_text[0..BLOCK_SIZE]);
-        decrypt(&mut state, &self.expanded_key);
-        unpack(&mut destination[0..BLOCK_SIZE], &mut state);
-    }
-}
-
-fn byte_concatenation(concat: &mut[u8] ,auth_data: &[u8], cipher_text: &[u8], len_auth_data: &u32, len_plain_text: &u32, total_len: &u32) {
-    let mut len_c: [u8; 8] = [0; 8];
-    let mut len_c_in_bits: u32 = len_plain_text * 128;
-    
-    let mut len_a: [u8; 8] = [0; 8];
-    let mut len_ad_in_bits: u32 = len_auth_data * 128;
-
-    let mut len_concat: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-
-
-    for i in 0..*len_auth_data as usize {
-        len_a[i] = ((len_ad_in_bits >> 8 * i) & 0xff) as u8;
-    }
-
-    for i in 0..*len_plain_text as usize {
-        len_c[i] = ((len_c_in_bits >> 8 * i) & 0xff) as u8;
-    }
-
-    let n = 15;
-    while n >= 0 {
-        if n > 7 {
-            len_concat[n] = len_c[7-n % 8];
-        } else {
-            len_concat[n] = len_a[7-n % 8];
-        }
-    }
-
-    for i in 0..(*total_len as usize) {
-        let comparable_index = i as u32;
-        if comparable_index < len_auth_data * (BLOCK_SIZE as u32) {
-            concat[i] = auth_data[i % (len_auth_data * (BLOCK_SIZE as u32)) as usize];
-        } else if (comparable_index >= len_auth_data * (BLOCK_SIZE as u32)) && (comparable_index < (len_auth_data + len_plain_text) * (BLOCK_SIZE as u32)) {
-            concat[i] = cipher_text[((comparable_index - len_auth_data * (BLOCK_SIZE as u32)) % (len_plain_text * (BLOCK_SIZE as u32))) as usize];
-        } else {
-            concat[i] = len_concat[i % BLOCK_SIZE];
-        }
-    }
-}
-
-fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u32) {
-
-    let mut state: [u32;4] = [0;4];
-
-    let length_128_bit_blocks = plain_text.len() / 16;
-
-    let mut local_counter_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    local_counter_block.copy_from_slice(counter_block);
-
-    let mut last_encryption_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-
-    for i in 0..length_128_bit_blocks {
-        pack(&mut state, &local_counter_block[0..BLOCK_SIZE]);
-        encrypt(&mut state, &expanded_key);
-        unpack(&mut last_encryption_block[0..BLOCK_SIZE], &mut state);
-
-        for j in 0..BLOCK_SIZE{
-            cipher_text[(i*BLOCK_SIZE) + j] = plain_text[(i*BLOCK_SIZE) + j] ^ last_encryption_block[j];
-        }
-        increment_counter(&mut local_counter_block, increment);
-    }
-}
-
-fn increment_counter(counter: &mut [u8], increment: &mut u32) {
-    
-    *increment = (*increment) + 1;
-    
-    for i in 0..4 {
-        counter[BLOCK_SIZE-1-i] = (*increment >> 8 * i & 0xff) as u8;
-    }
-}
-
-fn initial_counter_input(iv: &[u8], increment: &mut u32) -> [u8; BLOCK_SIZE]{
-    
-    *increment = 1;
-    
-    let mut counter: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    for i in 0..iv.len(){
-        counter[i] = iv[i];
-    }
-    counter[BLOCK_SIZE-1] = *increment as u8;
-    return counter;
-}
-
-fn initial_hash_subkey(expanded_key: &[u32]) -> [u8; BLOCK_SIZE]{
-    let mut state: [u32;4] = [0;4];
-    let mut ghash_key: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    
-    pack(&mut state, &ghash_key);
-    encrypt(&mut state, &expanded_key);
-    unpack(&mut ghash_key, &mut state);
-
-    return ghash_key;
-}
+// mod utils;
+use crate::aes_gcm::utils::*;
 
 // Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
 // Expands the original key to get the round keys
@@ -235,7 +107,6 @@ fn revert_sub_word(input: u32) -> u32{
 		(SBOX_INVERSE[(input&0xff) as usize]) as u32;
 }
 
-
 // Rotates the word n bytes to the left.
 fn rotate_word_left(input: u32, n: usize) -> u32{
     return input >> (32-8*n) | input << (8*n)
@@ -313,7 +184,6 @@ fn manipulate_columns(state: &mut [u32], revert: bool) {
     }
 }
 
-
 fn mix_columns(state: &mut [u32]){
     manipulate_columns(state, false);
 }
@@ -322,12 +192,11 @@ fn revert_mix_columns(state: &mut [u32]){
     manipulate_columns(state, true);
 }
 
-
 // The 16-byte block, called state is represented as a slice of 
 // 4 4-byte unsigned integers. 
 // The expanded key is based on the original key. Its 16*(rounds+1) bytes in 
 // length.
-fn encrypt(state: &mut [u32], expanded_key: &[u32]) {
+pub fn aes_encrypt(state: &mut [u32], expanded_key: &[u32]) {
     let mut key_index = 0;
     add_round_key(state, &expanded_key[key_index .. key_index+4]);
     key_index = key_index + 4;
@@ -344,7 +213,7 @@ fn encrypt(state: &mut [u32], expanded_key: &[u32]) {
     add_round_key(state, &expanded_key[key_index .. key_index+4])
 }
 
-fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
+pub fn aes_decrypt(state: &mut [u32], expanded_key: &[u32]) {
     let mut key_index = expanded_key.len() - 4;
     add_round_key(state, &expanded_key[key_index .. key_index+4]);
     key_index = key_index - 4;
@@ -360,7 +229,6 @@ fn decrypt(state: &mut [u32], expanded_key: &[u32]) {
     revert_sub_bytes(state);
     add_round_key(state, &expanded_key[key_index .. key_index+4])
 }
-
 
 // UNIT TESTING
 
@@ -467,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypt_decrypt() {
+    fn test_aes_encrypt_decrypt() {
         let key = "PURPLE SIDEKICKS";
         let expkey = key_expansion(key.as_bytes());
         
@@ -479,8 +347,8 @@ mod tests {
             pack(&mut input, &b);
             pack(&mut expected, &b);
 
-            encrypt(&mut input, &expkey);
-            decrypt(&mut input, &expkey);
+            aes_encrypt(&mut input, &expkey);
+            aes_decrypt(&mut input, &expkey);
             for j in 0..input.len() {
                 if input[j] != expected[j] {
                     assert_eq!(input[j], expected[j], "Expected {} but got {}", input[j], expected[j]);
@@ -488,57 +356,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn test_initial_hash_subkey() {
-        let key = "PURPLE SIDEKICKS";
-        let expkey = key_expansion(key.as_bytes());
-        
-        let mut state: [u32; 4] = [0; 4];
-        let mut output = initial_hash_subkey(&expkey);
-        
-        pack(&mut state, &output);
-        decrypt(&mut state, &expkey);
-        unpack(&mut output, &mut state);
-
-        for j in 0..output.len() {
-            assert_eq!(output[j], 0x00, "Expected {} but got {}", 0x00, output[j]);
-        }
-    }
-
-    #[test]
-    fn test_initial_counter_block() {
-        let iv: [u8; 12] = [0x57, 0xe4, 0x12, 0x27, 0x1d, 0x8a, 0xe7, 0x96, 0x8b, 0x6f, 0xfd, 0x38 ];
-        let mut increment :u32 = 0;
-        let mut state: [u32; 4] = [0; 4];
-        
-        let mut output = initial_counter_input(&iv, &mut increment);
-
-        for i in 0..12 {
-            assert_eq!(output[i], iv[i], "Expected {} but got {}", iv[i], output[i]);
-        }
-        for i in 12..15 {
-            assert_eq!(output[i], 0x00, "Expected {} but got {}", 0x00, output[i]);
-        }
-        assert_eq!(output[15], 0x01, "Expected {} but got {}", 0x01, output[15]);
-    }
-
-    #[test]
-    fn test_increment_counter() {
-        let iv: [u8; 12] = [0x57, 0xe4, 0x12, 0x27, 0x1d, 0x8a, 0xe7, 0x96, 0x8b, 0x6f, 0xfd, 0x38 ];
-        let mut increment :u32 = 0;
-        let mut state: [u32; 4] = [0; 4];
-        
-        let mut output = initial_counter_input(&iv, &mut increment);
-        increment_counter(&mut output, &mut increment);
-
-        for i in 0..12 {
-            assert_eq!(output[i], iv[i], "Expected {} but got {}", iv[i], output[i]);
-        }
-        for i in 12..15 {
-            assert_eq!(output[i], 0x00, "Expected {} but got {}", 0x00, output[i]);
-        }
-        assert_eq!(output[15], 0x02, "Expected {} but got {}", 0x02, output[15]);
-    }
 }
-
