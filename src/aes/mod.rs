@@ -1,31 +1,30 @@
 mod utils;
 use crate::aes::utils::*;
 
-pub struct AES_GCTR {
+pub struct AesGcm {
     expanded_key: [u32; 44]
 }
 
-impl AES_GCTR {
-    fn new(key: &[u8]) -> AES_GCTR {
-        AES_GCTR {
+impl AesGcm {
+    fn new(key: &[u8]) -> AesGcm {
+        AesGcm {
             expanded_key: key_expansion(key)
         }
     }
 
-    fn encrypt(&self, destination: &mut[u8], plain_text: &[u8]) {
+    fn encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8]) {
         
         // manipulatation to make sure plain text is a multiple of 128 bits
         let mut iv: [u8; 12] = [0;12];
         let mut increment: u8 = 0;
 
         let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
+
         let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
-        
         increment_counter(&mut counter_input, &mut increment);
         
-        GCTR();
+        gctr(cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
 
-        
     }
 
     fn decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
@@ -36,18 +35,57 @@ impl AES_GCTR {
     }
 }
 
-fn GCTR(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u8) {
+fn byte_concatenation(concat: &mut[u8] ,auth_data: &[u8], cipher_text: &[u8], len_auth_data: &u32, len_plain_text: &u32, total_len: &u32) {
+    let mut len_c: [u8; 8] = [0; 8];
+    let mut len_c_in_bits: u32 = len_plain_text * 128;
+    
+    let mut len_a: [u8; 8] = [0; 8];
+    let mut len_ad_in_bits: u32 = len_auth_data * 128;
+
+    let mut len_concat: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+
+
+    for i in 0..*len_auth_data as usize {
+        len_a[i] = ((len_ad_in_bits >> 8 * i) & 0xff) as u8;
+    }
+
+    for i in 0..*len_plain_text as usize {
+        len_c[i] = ((len_c_in_bits >> 8 * i) & 0xff) as u8;
+    }
+
+    let n = 15;
+    while n >= 0 {
+        if n > 7 {
+            len_concat[n] = len_c[7-n % 8];
+        } else {
+            len_concat[n] = len_a[7-n % 8];
+        }
+    }
+
+    for i in 0..(*total_len as usize) {
+        let comparable_index = i as u32;
+        if comparable_index < len_auth_data * (BLOCK_SIZE as u32) {
+            concat[i] = auth_data[i % (len_auth_data * (BLOCK_SIZE as u32)) as usize];
+        } else if (comparable_index >= len_auth_data * (BLOCK_SIZE as u32)) && (comparable_index < (len_auth_data + len_plain_text) * (BLOCK_SIZE as u32)) {
+            concat[i] = cipher_text[((comparable_index - len_auth_data * (BLOCK_SIZE as u32)) % (len_plain_text * (BLOCK_SIZE as u32))) as usize];
+        } else {
+            concat[i] = len_concat[i % BLOCK_SIZE];
+        }
+    }
+}
+
+fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_block: &[u8], increment: &mut u8) {
 
     let mut state: [u32;4] = [0;4];
 
-    let 128_bit_blocks = plain_text.len() / 16;
+    let length_128_bit_blocks = plain_text.len() / 16;
 
     let mut local_counter_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
     local_counter_block.copy_from_slice(counter_block);
 
     let mut last_encryption_block: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
 
-    for i in 0..128_bit_blocks {
+    for i in 0..length_128_bit_blocks {
         pack(&mut state, &local_counter_block[0..BLOCK_SIZE]);
         encrypt(&mut state, &expanded_key);
         unpack(&mut last_encryption_block[0..BLOCK_SIZE], &mut state);
@@ -55,7 +93,7 @@ fn GCTR(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_
         for j in 0..BLOCK_SIZE{
             cipher_text[(i*BLOCK_SIZE) + j] = plain_text[(i*BLOCK_SIZE) + j] ^ last_encryption_block[j];
         }
-        increment_counter(&mut local_counter_block, &mut increment);
+        increment_counter(&mut local_counter_block, increment);
     }
 }
 
