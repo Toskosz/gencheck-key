@@ -5,31 +5,31 @@ use crate::aes_gcm::utils::*;
 // Expands the original key to get the round keys
 pub fn key_expansion(key: &[u8]) -> [u32;44] {
     // These values come from the AES standard for 128 bit keys.
-    const n_words: usize = 4;
-    const rounds: usize = 10;
-    let mut expanded_key: [u32;4*(rounds+1)] = [0;4*(rounds+1)];
+    const N_WORDS: usize = 4;
+    const ROUNDS: usize = 10;
+    let mut expanded_key: [u32;4*(ROUNDS+1)] = [0;4*(ROUNDS+1)];
     
     // Each round requires a 4 word key. So we need 4(10+1) words in the expanded key
     
     let mut i = 0;
     // First 4 words are the original key
-    while i < n_words {
+    while i < N_WORDS {
         expanded_key[i] = ((key[4*i] as u32) << 24) | ((key[4*i+1] as u32) << 16) | ((key[4*i+2] as u32) << 8) | (key[4*i+3] as u32);
         i += 1;
     }
 
-    while i < 4*(rounds+1) {
+    while i < 4*(ROUNDS+1) {
         expanded_key[i] = expanded_key[i-1];
         expanded_key[i] = rotate_word_left(expanded_key[i], 1);
         expanded_key[i] = sub_word(expanded_key[i]);
-        expanded_key[i] = expanded_key[i] ^ get_round_constant((i/n_words)-1);
-        expanded_key[i] = expanded_key[i] ^ expanded_key[i-n_words];
+        expanded_key[i] = expanded_key[i] ^ get_round_constant((i/N_WORDS)-1);
+        expanded_key[i] = expanded_key[i] ^ expanded_key[i-N_WORDS];
 
         for j in 1..4 {
-            expanded_key[i+j] = expanded_key[i+j-1] ^ expanded_key[i+j-n_words];
+            expanded_key[i+j] = expanded_key[i+j-1] ^ expanded_key[i+j-N_WORDS];
         }
 
-        i = i + n_words;
+        i = i + N_WORDS;
     }
 
     for j in (0..expanded_key.len()).step_by(4) {

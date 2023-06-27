@@ -14,19 +14,34 @@ impl AesGcm {
         }
     }
 
-    fn encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8]) {
-        
-        // manipulatation to make sure plain text is a multiple of 128 bits
-        let mut iv: [u8; 12] = [0;12];
-        let mut increment: u32 = 0;
+    fn encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8], auth_data: &[u8]) {
+        // TODO: manipulatation to make sure plain text is a multiple of 128 bits
+        // TODO: generate auth data (meta data)
+        let total_len = plain_text.len() + auth_data.len() + BLOCK_SIZE;
+        let mut intermediate_cipher_text: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+        let mut concat = vec![0; total_len];
+        let mut tag: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
 
-        let mut ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
+        let iv: [u8; 12] = [0;12];
+        let mut increment: u32 = 0;
+        
+        let ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
 
         let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
         increment_counter(&mut counter_input, &mut increment);
         
-        gctr(cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
+        gctr(&mut intermediate_cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
 
+        byte_concatenation(&mut concat, &auth_data, &intermediate_cipher_text, &(auth_data.len() as u32), &(plain_text.len() as u32), &(total_len as u32));
+
+        ghash(cipher_text, &ghash_key, &concat, &(total_len as u32));
+
+
+        let second_counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
+        gctr(&mut tag, &cipher_text, &self.expanded_key, &second_counter_input, &mut increment);
+
+        println!("Ciphertext: {:?}", cipher_text);
+        println!("Tag: {:?}", tag);
     }
 
     fn decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
@@ -37,26 +52,43 @@ impl AesGcm {
     }
 }
 
-fn byte_concatenation(concat: &mut[u8] ,auth_data: &[u8], cipher_text: &[u8], len_auth_data: &u32, len_plain_text: &u32, total_len: &u32) {
+fn ghash(output: &mut[u8], hash_subkey: &[u8], data: &[u8], total_len: &u32) {
+    let mut y: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let mut z: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let mut tmp: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+
+    for i in 0..(total_len/(BLOCK_SIZE as u32)) as usize {
+        for j in 0..BLOCK_SIZE {
+            tmp[j] = data[(i * BLOCK_SIZE) + j];
+        }
+
+        xor_block(&mut y, &mut tmp);
+        galois_field_mul_128(&mut z, hash_subkey, &mut y);
+        y.copy_from_slice(&z);
+    }
+
+    output.copy_from_slice(&y);
+}
+
+fn byte_concatenation(concat: &mut[u8], auth_data: &[u8], cipher_text: &[u8], len_auth_data: &u32, len_plain_text: &u32, total_len: &u32) {
     let mut len_c: [u8; 8] = [0; 8];
-    let mut len_c_in_bits: u32 = len_plain_text * 128;
+    let len_c_in_bits: u32 = len_plain_text * 8;
     
     let mut len_a: [u8; 8] = [0; 8];
-    let mut len_ad_in_bits: u32 = len_auth_data * 128;
+    let len_ad_in_bits: u32 = len_auth_data * 8;
 
     let mut len_concat: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
 
 
-    for i in 0..*len_auth_data as usize {
+    for i in 0..(*len_auth_data / 16) as usize {
         len_a[i] = ((len_ad_in_bits >> 8 * i) & 0xff) as u8;
     }
 
-    for i in 0..*len_plain_text as usize {
+    for i in 0..(*len_plain_text / 16) as usize {
         len_c[i] = ((len_c_in_bits >> 8 * i) & 0xff) as u8;
     }
 
-    let n = 15;
-    while n >= 0 {
+    for n in (0..16).rev() {
         if n > 7 {
             len_concat[n] = len_c[7-n % 8];
         } else {
@@ -66,10 +98,10 @@ fn byte_concatenation(concat: &mut[u8] ,auth_data: &[u8], cipher_text: &[u8], le
 
     for i in 0..(*total_len as usize) {
         let comparable_index = i as u32;
-        if comparable_index < len_auth_data * (BLOCK_SIZE as u32) {
-            concat[i] = auth_data[i % (len_auth_data * (BLOCK_SIZE as u32)) as usize];
-        } else if (comparable_index >= len_auth_data * (BLOCK_SIZE as u32)) && (comparable_index < (len_auth_data + len_plain_text) * (BLOCK_SIZE as u32)) {
-            concat[i] = cipher_text[((comparable_index - len_auth_data * (BLOCK_SIZE as u32)) % (len_plain_text * (BLOCK_SIZE as u32))) as usize];
+        if comparable_index < *len_auth_data {
+            concat[i] = auth_data[i];
+        } else if (comparable_index >= *len_auth_data) && (comparable_index < len_auth_data + len_plain_text) {
+            concat[i] = cipher_text[((comparable_index - len_auth_data) % len_plain_text) as usize];
         } else {
             concat[i] = len_concat[i % BLOCK_SIZE];
         }
@@ -99,25 +131,7 @@ fn gctr(cipher_text: &mut[u8], plain_text: &[u8], expanded_key: &[u32], counter_
     }
 }
 
-fn ghash(output: &mut[u8], hash_subkey: &mut[u8], data: &mut[u8], total_len: &u32) {
-    let mut y: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    let mut z: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-    let mut tmp: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-
-    for i in 0..(total_len/(BLOCK_SIZE as u32)) as usize {
-        for j in 0..BLOCK_SIZE {
-            tmp[j] = data[(i * BLOCK_SIZE) + j];
-        }
-
-        xor_block(&mut y, &mut tmp);
-        galois_field_mul_128(&mut z, hash_subkey, &mut y);
-        y.copy_from_slice(&z);
-    }
-
-    output.copy_from_slice(&y);
-}
-
-fn galois_field_mul_128(output: &mut [u8], hash_subkey: &mut [u8], y: &mut [u8]) {
+fn galois_field_mul_128(output: &mut [u8], hash_subkey: &[u8], y: &mut [u8]) {
     let mut tmp: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE]; 
     tmp.copy_from_slice(y);
 
@@ -137,7 +151,7 @@ fn galois_field_mul_128(output: &mut [u8], hash_subkey: &mut [u8], y: &mut [u8])
 }
 
 fn shift_right(output: &mut [u8]) {
-    let mut prev_carry: u8 = 0;
+    let mut prev_carry: u8;
     let mut current_carry: u8 = 0;
 
     for i in 0..BLOCK_SIZE{
@@ -208,7 +222,7 @@ mod tests {
         let mut output = initial_hash_subkey(&expkey);
         
         pack(&mut state, &output);
-        decrypt(&mut state, &expkey);
+        aes_decrypt(&mut state, &expkey);
         unpack(&mut output, &mut state);
 
         for j in 0..output.len() {
