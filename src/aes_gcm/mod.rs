@@ -3,53 +3,45 @@ mod core;
 use crate::aes_gcm::core::*;
 use crate::aes_gcm::utils::*;
 
-pub struct AesGcm {
-    expanded_key: [u32; 44]
+
+pub fn aes_gcm_encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8], auth_data: &[u8], key: &[u8]) {
+    // TODO: manipulatation to make sure plain text is a multiple of 128 bits
+    // TODO: generate auth data (meta data)
+
+    expanded_key: [u32; 44] = key_expansion(key);
+
+    let total_len = plain_text.len() + auth_data.len() + BLOCK_SIZE;
+    let mut intermediate_cipher_text: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+    let mut concat = vec![0; total_len];
+    let mut tag: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
+
+    let iv: [u8; 12] = [0;12];
+    let mut increment: u32 = 0;
+    
+    let ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
+
+    let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
+    increment_counter(&mut counter_input, &mut increment);
+    
+    gctr(&mut intermediate_cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
+
+    byte_concatenation(&mut concat, &auth_data, &intermediate_cipher_text, &(auth_data.len() as u32), &(plain_text.len() as u32), &(total_len as u32));
+
+    ghash(cipher_text, &ghash_key, &concat, &(total_len as u32));
+
+
+    let second_counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
+    gctr(&mut tag, &cipher_text, &self.expanded_key, &second_counter_input, &mut increment);
+
+    println!("Ciphertext: {:?}", cipher_text);
+    println!("Tag: {:?}", tag);
 }
 
-impl AesGcm {
-    fn new(key: &[u8]) -> AesGcm {
-        AesGcm {
-            expanded_key: key_expansion(key)
-        }
-    }
-
-    fn encrypt(&self, cipher_text: &mut[u8], plain_text: &[u8], auth_data: &[u8]) {
-        // TODO: manipulatation to make sure plain text is a multiple of 128 bits
-        // TODO: generate auth data (meta data)
-        let total_len = plain_text.len() + auth_data.len() + BLOCK_SIZE;
-        let mut intermediate_cipher_text: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-        let mut concat = vec![0; total_len];
-        let mut tag: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
-
-        let iv: [u8; 12] = [0;12];
-        let mut increment: u32 = 0;
-        
-        let ghash_key: [u8; BLOCK_SIZE] = initial_hash_subkey(&self.expanded_key);
-
-        let mut counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
-        increment_counter(&mut counter_input, &mut increment);
-        
-        gctr(&mut intermediate_cipher_text, &plain_text, &self.expanded_key, &counter_input, &mut increment);
-
-        byte_concatenation(&mut concat, &auth_data, &intermediate_cipher_text, &(auth_data.len() as u32), &(plain_text.len() as u32), &(total_len as u32));
-
-        ghash(cipher_text, &ghash_key, &concat, &(total_len as u32));
-
-
-        let second_counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
-        gctr(&mut tag, &cipher_text, &self.expanded_key, &second_counter_input, &mut increment);
-
-        println!("Ciphertext: {:?}", cipher_text);
-        println!("Tag: {:?}", tag);
-    }
-
-    fn decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
-        let mut state: [u32;4] = [0;4];
-        pack(&mut state, &cipher_text[0..BLOCK_SIZE]);
-        aes_decrypt(&mut state, &self.expanded_key);
-        unpack(&mut destination[0..BLOCK_SIZE], &mut state);
-    }
+pub fn aes_gcm_decrypt(&self, destination: &mut[u8], cipher_text: &[u8]) {
+    let mut state: [u32;4] = [0;4];
+    pack(&mut state, &cipher_text[0..BLOCK_SIZE]);
+    aes_decrypt(&mut state, &self.expanded_key);
+    unpack(&mut destination[0..BLOCK_SIZE], &mut state);
 }
 
 fn ghash(output: &mut[u8], hash_subkey: &[u8], data: &[u8], total_len: &u32) {
