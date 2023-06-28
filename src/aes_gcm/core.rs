@@ -1,6 +1,12 @@
 // mod utils;
 use crate::aes_gcm::utils::*;
 
+pub fn pad_to_128(data: &mut Vec<u8>){
+    while data.len() < 16 {
+        data.push(0x00);
+    }
+}
+
 // Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
 // Expands the original key to get the round keys
 pub fn key_expansion(key: &[u8]) -> [u32;44] {
