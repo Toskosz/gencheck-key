@@ -11,3 +11,9 @@ https://en.wikipedia.org/wiki/Galois/Counter_Mode
 ### AES
 https://www.youtube.com/watch?v=O4xNJsjtN6E&t=313s
 https://www.youtube.com/watch?v=lnKPoWZnNNM
+
+
+### RSA
+
+### primes
+https://math.stackexchange.com/questions/470424/what-better-way-to-check-if-a-number-is-a-perfect-power
