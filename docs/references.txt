@@ -16,4 +16,8 @@ https://www.youtube.com/watch?v=lnKPoWZnNNM
 ### RSA
 
 ### primes
-https://math.stackexchange.com/questions/470424/what-better-way-to-check-if-a-number-is-a-perfect-power
+https://github.com/prdx23/1024-bit-primes/tree/master/src
+https://glitchcomet.com/articles/1024-bit-primes/
+
+### big numbers
+https://stackoverflow.com/questions/23333937/how-to-perform-mathematical-operations-on-large-numbers
