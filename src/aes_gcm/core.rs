@@ -7,6 +7,12 @@ pub fn pad_to_128(data: &mut Vec<u8>){
     }
 }
 
+pub fn generate_128bit_key() -> [u8;16] {
+    let mut key: [u8;16] = [0;16];
+    insert_random_bytes(&mut key);
+    return key;
+}
+
 // Based on https://en.wikipedia.org/wiki/Rijndael_key_schedule
 // Expands the original key to get the round keys
 pub fn key_expansion(key: &[u8]) -> [u32;44] {

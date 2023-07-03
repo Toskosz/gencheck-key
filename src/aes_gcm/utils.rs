@@ -1,5 +1,12 @@
 // let xs: [i32; 5] = [1, 2, 3, 4, 5];
 
+use std::fs::File;
+use std::io::Read;
+
+pub fn insert_random_bytes(bytes: &mut[u8]) -> std::io::Result<()> {
+    File::open("/dev/urandom")?.read_exact(bytes)?;
+    Ok(())
+}
 
 /// Moves from 16 u8 array A.K.A 16 bytes to 32 bit array of size 4 also 16 bytes.
 /// Both have 128 bits, just in different "packages"
