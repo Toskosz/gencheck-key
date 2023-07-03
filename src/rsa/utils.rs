@@ -50,18 +50,3 @@ pub fn generate_small_primes<const N:usize>() -> [u64; N] {
         }
     }
 }
-
-pub fn mod_exp(mut base: BigInt, mut exponent: BigInt, modulus: BigInt) -> BigInt {
-    if modulus == BigInt::from(1) { return BigInt::zero() }
-
-    let mut result = BigInt::from(1);
-    base = base % modulus;
-    while exponent > BigInt::zero() {
-        if exponent % BigInt::from(2) == BigInt::from(1) {
-            result = (result * base) % modulus;
-        }
-        exponent = exponent >> 1;
-        base = (base * base) % modulus;
-    }
-    return result;
-}
