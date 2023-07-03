@@ -424,3 +424,12 @@ impl RemAssign for BigInt {
         *self = big_div(*self, other).1;
     }
 }
+
+pub fn gcd(mut a: BigInt, mut b: BigInt) -> BigInt {
+    while !b.is_zero() {
+        let r = a % b;
+        a = b;
+        b = r;
+    }
+    return a;
+}

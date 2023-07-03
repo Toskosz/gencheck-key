@@ -1,5 +1,6 @@
 use crate::rsa::utils;
 use crate::rsa::bigint::BigInt;
+use crate::rsa::bigint::gcd;
 
 pub fn prime_512_bit() -> BigInt {
     const P: usize = 5000;
@@ -71,4 +72,11 @@ fn miller_rabin_test(n: BigInt, k:usize) -> utils::PrimeResult {
     }
 
     return utils::PrimeResult::ProbablePrime;
+}
+
+pub fn are_coprimes(a: BigInt, b: BigInt) -> bool {
+    if a.is_even() && b.is_even() {
+        return false;
+    }
+    return gcd(a, b) == BigInt::from(1);
 }
