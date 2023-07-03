@@ -9,7 +9,7 @@ pub fn pad_to_128(data: &mut Vec<u8>){
 
 pub fn generate_128bit_key() -> [u8;16] {
     let mut key: [u8;16] = [0;16];
-    insert_random_bytes(&mut key);
+    insert_random_bytes(&mut key).expect("Failed to generate random bytes");
     return key;
 }
 

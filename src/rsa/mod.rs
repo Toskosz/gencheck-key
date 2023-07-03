@@ -5,31 +5,30 @@ mod utils;
 use crate::rsa::bigint::BigInt;
 use crate::rsa::primes::prime_512_bit;
 use crate::rsa::primes::are_coprimes;
+use crate::rsa::utils::mod_exp;
 
-struct KeyPair {
+pub struct KeyPair {
     public_key: Vec<BigInt>,
     private_key: Vec<BigInt>,
 }
 
-fn generate_keypair() -> KeyPair {
+pub fn generate_keypair() -> KeyPair {
     let p = prime_512_bit();
     let q = prime_512_bit();
-    let mut e: BigInt = BigInt::zero();
 
     let n = p * q;
     let phi = (p.decrease()) * (q.decrease());
-    let possible_e = BigInt::from(2);
+    let e = BigInt::from(2);
 
-    while possible_e != phi {
-        if are_coprimes(possible_e, phi) {
-            e = possible_e;
+    while e != phi {
+        if are_coprimes(e, phi) {
             break;
         } else {
-            possible_e.increase();
+            e.increase();
         }
     }
 
-    if e == BigInt::zero() {
+    if e == BigInt::from(2) {
         panic!("Could not find a suitable e");
     }
 
@@ -44,6 +43,20 @@ fn generate_keypair() -> KeyPair {
 
     return KeyPair {
         public_key: vec![n, e],
-        private_key: vec![p, q, d],
+        private_key: vec![n, d],
     };
+}
+
+pub fn rsa_encrypt(message: BigInt, public_key: Vec<BigInt>) -> BigInt {
+    let n = public_key[0];
+    let e = public_key[1];
+
+    return mod_exp(message, e, n);
+}
+
+pub fn rsa_decrypt(cipher_text: BigInt, private_key: Vec<BigInt>) -> BigInt {
+    let n = private_key[0];
+    let d = private_key[1];
+
+    return mod_exp(cipher_text, d, n);
 }
