@@ -2,7 +2,7 @@
 use crate::aes_gcm::utils::*;
 
 pub fn pad_to_128(data: &mut Vec<u8>){
-    while data.len() < 16 {
+    while data.len() % 16 != 0 {
         data.push(0x00);
     }
 }
@@ -234,6 +234,50 @@ pub fn aes_decrypt(state: &mut [u32], expanded_key: &[u32]) {
     revert_shift_rows(state);
     revert_sub_bytes(state);
     add_round_key(state, &expanded_key[key_index .. key_index+4])
+}
+
+pub fn core_encrypt(plain_text: &mut Vec<u8>, key: &String) -> Vec<u8> {
+    let expkey = key_expansion(key.as_bytes());
+    pad_to_128(plain_text);
+    let mut cipher_text: Vec<u8> = vec![];
+    
+    // intermediary variables
+    let mut state: [u32; 4] = [0; 4];
+    let mut tmp: [u8; 16] = [0; 16];
+    
+    for slice in plain_text.chunks(16) {
+        pack(&mut state, &slice);
+        aes_encrypt(&mut state, &expkey);
+        unpack(&mut tmp, &mut state);
+
+        for j in 0..16 {
+            cipher_text.push(tmp[j]);
+        }
+    }
+
+    return cipher_text;
+}
+
+// A "correct" cipher text is always of size multiple of 128 bits.
+pub fn core_decrypt(cipher_text: &Vec<u8>, key: &String) -> Vec<u8> {
+    let expkey = key_expansion(key.as_bytes());
+    let mut plain_text: Vec<u8> = vec![];
+    
+    // intermediary variables
+    let mut state: [u32; 4] = [0; 4];
+    let mut tmp: [u8; 16] = [0; 16];
+    
+    for slice in cipher_text.chunks(16) {
+        pack(&mut state, &slice);
+        aes_decrypt(&mut state, &expkey);
+        unpack(&mut tmp, &mut state);
+
+        for j in 0..16 {
+            plain_text.push(tmp[j]);
+        }
+    }
+
+    return plain_text;
 }
 
 // UNIT TESTING
