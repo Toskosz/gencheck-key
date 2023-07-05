@@ -148,12 +148,78 @@ fn mgf(input: &[u8], output_length: u128) -> Vec<u8>{
     return t[0..output_length as usize].to_vec();
 }
 
+fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
+    if encoded_message.len() < 2 * 32 + 1 {
+        panic!("Decoding error: encoded message too short");
+    }
+
+    let mut expected_phash: [u8; 32] = [0; 32];
+    let mut hasher = Sha256::new();
+    hasher.update(p);
+    hasher.finalize_into((&mut expected_phash).into());
+
+    
+    let mut masked_seed: [u8; 32] = [0; 32];
+    for i in 1..33 {
+        masked_seed[i] = encoded_message[i];
+    }
+
+    let mut masked_db: Vec<u8> = Vec::new();
+    for byte in encoded_message[33..encoded_message.len()].iter() {
+        masked_db.push(*byte);
+    }
+
+    let seed_mask = mgf(&masked_db, 32);
+    let mut seed: [u8; 32] = [0; 32];
+    for i in 0..masked_seed.len() {
+        seed[i] = masked_seed[i] ^ seed_mask[i];
+    }
+
+    let db_mask = mgf(&seed, (95) as u128);
+    let mut db: Vec<u8> = Vec::new();
+    for i in 0..masked_db.len() {
+        db.push(masked_db[i] ^ db_mask[i]);
+    }
+
+    for i in 0..32 {
+        if db[i] != expected_phash[i] {
+            panic!("Decoding error: phash does not match");
+        }
+    }
+
+    let mut message: Vec<u8> = Vec::new();
+    let mut message_start: usize = 0;
+    for i in 32..db.len() {
+        if db[i] == 0x01 {
+            message_start = i+1;
+            break;
+        } else if db[i] != 0x00 {
+            panic!("PS not 0x00 (0x00 before 0x01)");
+        }
+    }
+
+    if message_start == 0 {
+        panic!("Not able to find message start");
+    }
+
+    for i in message_start..db.len() {
+        message.push(db[i]);
+    }
+
+    if message[0] != 0x00 {
+        panic!("First byte of message is not 0x00");
+    }
+
+    return message;
+}
+
 /// message: message to be encoded, an octet string of length at most 
-/// emLen − 1 − 2hLen (mLen denotes the length in octets of the message
-fn oaep_encode(message: &[u8]) -> [u8;128] {
+/// mLen = emLen − 1 − 2hLen (mLen denotes the length in octets of the message)
+fn oaep_encode(message: &[u8], auth_data: &[u8]) -> [u8;128] {
 
     // create a Sha256 object
     let mut hasher = Sha256::new();
+    let padding_string: Vec<u8> = vec![0; 62 - message.len()];
 
     // 128 bytes come from the max size message of 1024 bits
     // 32 bytes comes from the output of the SHA-256 function 
@@ -164,21 +230,11 @@ fn oaep_encode(message: &[u8]) -> [u8;128] {
         panic!("Message too long");
     }
 
-    let ps: Vec<u8> = vec![0; 62 - message.len()];
-    
-    // 32 is a arbitrary choice of mine
-    // It can be any size between 1 and SHA-256 input limit  
-    let p: [u8; 32] = [0; 32];
-    // insert_random_bytes(&mut p).expect("Failed to generate random bytes for P in OAEP");
-
     let mut phash: [u8; 32] = [0; 32];
-
-    // write input message
-    hasher.update(p);
-    // read hash digest and consume hasher
+    hasher.update(auth_data);
     hasher.finalize_into((&mut phash).into());
 
-    let db = concat_db(&phash, &ps, &message);
+    let db = concat_db(&phash, &padding_string, &message);
 
     let mut seed: [u8; 32] = [0; 32];
     insert_random_bytes(&mut seed).expect("Failed to generate random seed in OAEP");
