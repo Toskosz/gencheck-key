@@ -1,4 +1,4 @@
-mod bigint;
+pub mod bigint;
 mod primes;
 mod utils;
 
@@ -6,13 +6,15 @@ use crate::rsa::bigint::BigInt;
 use crate::rsa::primes::prime_512_bit;
 use crate::rsa::primes::are_coprimes;
 use crate::rsa::utils::insert_random_bytes;
+use crate::main_utils::transform_u64_to_array_of_u8;
+use crate::main_utils::reverse;
 
 use hex_literal::hex;
 use sha2::{Sha256, Digest};
 
 pub struct KeyPair {
-    public_key: Vec<BigInt>,
-    private_key: Vec<BigInt>,
+    pub public_key: Vec<BigInt>,
+    pub private_key: Vec<BigInt>,
 }
 
 pub fn generate_keypair() -> KeyPair {
@@ -21,27 +23,29 @@ pub fn generate_keypair() -> KeyPair {
 
     let n = p * q;
     let phi = (p.decrease()) * (q.decrease());
-    let e = BigInt::from(2);
+    let mut e = BigInt::from(2);
 
     while e != phi {
         if are_coprimes(e, phi) {
             break;
         } else {
-            e.increase();
+            e = e.increase();
         }
     }
 
-    if e == BigInt::from(2) {
+    if e >= phi {
         panic!("Could not find a suitable e");
     }
 
-    let d: BigInt = BigInt::from(1);
+    let d: BigInt;
+    let mut possible_d_times_e = phi.clone() + BigInt::from(1);
     loop {
-        if (d * e) % phi == BigInt::from(1) {
+        if (possible_d_times_e % e).is_zero() {
+            d = possible_d_times_e / e;
             break;
         } else {
-            d.increase();
-        } 
+            possible_d_times_e += phi;
+        }
     }
 
     return KeyPair {
@@ -65,14 +69,14 @@ fn mod_exp(mut base: BigInt, mut exponent: BigInt, modulus: BigInt) -> BigInt {
     return result;
 }
 
-fn rsa_encrypt(message: BigInt, public_key: Vec<BigInt>) -> BigInt {
+pub fn rsa_encrypt(message: BigInt, public_key: Vec<BigInt>) -> BigInt {
     let n = public_key[0];
     let e = public_key[1];
 
     return mod_exp(message, e, n);
 }
 
-fn rsa_decrypt(cipher_text: BigInt, private_key: Vec<BigInt>) -> BigInt {
+pub fn rsa_decrypt(cipher_text: BigInt, private_key: Vec<BigInt>) -> BigInt {
     let n = private_key[0];
     let d = private_key[1];
 
@@ -256,4 +260,34 @@ fn oaep_encode(message: &[u8], auth_data: &[u8]) -> [u8;128] {
     let encoded_message = concat_encoded_message(&masked_seed, &masked_db);
     
     return encoded_message;
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rsa() {
+        let key_pair = generate_keypair();
+        let original_message = "Lorem ipsum dolor sit amet odio.";
+        let reversed_message = reverse(original_message);
+        let message = BigInt::from(reversed_message.as_bytes());
+
+        let encrypted_message = rsa_encrypt(message, key_pair.public_key);
+        let decrypted_message = rsa_decrypt(encrypted_message, key_pair.private_key);
+
+        let mut final_message: Vec<u8> = Vec::new();
+        let mut tmp: Vec<u8> = Vec::new();
+        for byte in decrypted_message.chunks.iter() {
+            tmp = transform_u64_to_array_of_u8(*byte);
+            tmp.append(&mut final_message);
+            final_message = tmp
+            // final_message.append(&mut transform_u64_to_array_of_u8(*byte));
+        }
+    
+        let binding = String::from_utf8(final_message).unwrap();
+        let text_message = binding.trim_matches(char::from(0));
+        assert_eq!(original_message, text_message);
+    }
 }

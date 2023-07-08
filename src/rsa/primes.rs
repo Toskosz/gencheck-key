@@ -75,8 +75,5 @@ fn miller_rabin_test(n: BigInt, k:usize) -> utils::PrimeResult {
 }
 
 pub fn are_coprimes(a: BigInt, b: BigInt) -> bool {
-    if a.is_even() && b.is_even() {
-        return false;
-    }
     return gcd(a, b) == BigInt::from(1);
 }
