@@ -69,14 +69,14 @@ fn mod_exp(mut base: BigInt, mut exponent: BigInt, modulus: BigInt) -> BigInt {
     return result;
 }
 
-pub fn rsa_encrypt(message: BigInt, public_key: Vec<BigInt>) -> BigInt {
+fn rsa_encrypt(message: BigInt, public_key: Vec<BigInt>) -> BigInt {
     let n = public_key[0];
     let e = public_key[1];
 
     return mod_exp(message, e, n);
 }
 
-pub fn rsa_decrypt(cipher_text: BigInt, private_key: Vec<BigInt>) -> BigInt {
+fn rsa_decrypt(cipher_text: BigInt, private_key: Vec<BigInt>) -> BigInt {
     let n = private_key[0];
     let d = private_key[1];
 
@@ -152,9 +152,12 @@ fn mgf(input: &[u8], output_length: u128) -> Vec<u8>{
     return t[0..output_length as usize].to_vec();
 }
 
-fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
+pub fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
     if encoded_message.len() < 2 * 32 + 1 {
         panic!("Decoding error: encoded message too short");
+    }
+    if encoded_message[0] != 0x00 {
+        panic!("First byte of message is not 0x00");
     }
 
     let mut expected_phash: [u8; 32] = [0; 32];
@@ -165,7 +168,7 @@ fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
     
     let mut masked_seed: [u8; 32] = [0; 32];
     for i in 1..33 {
-        masked_seed[i] = encoded_message[i];
+        masked_seed[i-1] = encoded_message[i];
     }
 
     let mut masked_db: Vec<u8> = Vec::new();
@@ -210,16 +213,12 @@ fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
         message.push(db[i]);
     }
 
-    if message[0] != 0x00 {
-        panic!("First byte of message is not 0x00");
-    }
-
     return message;
 }
 
 /// message: message to be encoded, an octet string of length at most 
 /// mLen = emLen − 1 − 2hLen (mLen denotes the length in octets of the message)
-fn oaep_encode(message: &[u8], auth_data: &[u8]) -> [u8;128] {
+pub fn oaep_encode(message: &[u8], auth_data: &[u8]) -> [u8;128] {
 
     // create a Sha256 object
     let mut hasher = Sha256::new();
@@ -289,5 +288,23 @@ mod tests {
         let binding = String::from_utf8(final_message).unwrap();
         let text_message = binding.trim_matches(char::from(0));
         assert_eq!(original_message, text_message);
+    }
+
+    #[test]
+    fn test_oaep(){
+        let message = "Very secret message";
+        let auth_data = "VASCO";
+        
+        let encoded_message = oaep_encode(message.as_bytes(), auth_data.as_bytes());
+        println!("encoded_message {:?}", encoded_message);
+        let mut decoded_message = oaep_decode(&encoded_message, auth_data.as_bytes());
+        
+        let binding = String::from_utf8(decoded_message).unwrap();
+        let text_decoded_message = binding.trim_matches(char::from(0));
+        
+        println!("encoded_message {:?}", encoded_message);
+        println!("decoded_message {}", text_decoded_message);
+
+        assert_eq!(message, text_decoded_message);
     }
 }
