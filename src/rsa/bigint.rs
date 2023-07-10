@@ -484,7 +484,6 @@ impl BigInt {
             bnum <<= 1;
         }
 
-        println!();
         let mut start = false;
         for chunk in scratch.chunks.iter().rev() {
             if *chunk == 0 { continue; }
@@ -498,7 +497,6 @@ impl BigInt {
                 print!("{}", bits);
             }
         }
-        println!();
     }
 }
 

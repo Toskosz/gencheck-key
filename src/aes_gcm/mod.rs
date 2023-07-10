@@ -46,9 +46,6 @@ pub fn aes_gcm_encrypt(plain_text: &mut Vec<u8>, auth_data: &mut Vec<u8>, key: &
 
     let second_counter_input: [u8; BLOCK_SIZE] = initial_counter_input(&iv, &mut increment);
     gctr(&mut tag, &cipher_text, &expanded_key, &second_counter_input, &mut increment, 1);
-
-    println!("Ciphertext: {:?}", cipher_text);
-    println!("Tag: {:?}", tag);
 }
 
 pub fn aes_gcm_decrypt(destination: &mut[u8], cipher_text: &[u8], key: &[u8]) {

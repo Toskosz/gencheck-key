@@ -27,8 +27,6 @@ pub fn rsa_oaep_decode(encoded_message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8
     for (i, slice) in key_bigint_order.chunks(256).enumerate() {
         private_key.push(BigInt::from(slice));
     }
-    
-    println!("private key for oaep decode: {:?} {:?}", private_key[0].chunks, private_key[1].chunks);
 
     let rsa_decoded_message = rsa_decrypt(BigInt::from(&encoded_message_bigint_order), private_key);
     let oaep_encoded_message_bigint_order = parse_to_byte(&rsa_decoded_message);
@@ -43,8 +41,6 @@ pub fn rsa_oaep_encode(message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8>) -> Ve
 
     let key_bigint_order = byte_reverse(&key);
 
-    println!("key_bigint_order: {:?}", key_bigint_order);
-
     let oaep_encoded_message = oaep_encode(&message, &auth_data);
 
     let reversed_message = byte_reverse(&oaep_encoded_message);
@@ -53,14 +49,9 @@ pub fn rsa_oaep_encode(message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8>) -> Ve
 
     let mut public_key: Vec<BigInt> = Vec::new();
 
-    println!("key_bigint_order size: {:?}", key_bigint_order.len());
-
     for (i, slice) in key_bigint_order.chunks(256).enumerate() {
-        println!("slice: {:?}", slice);
         public_key.push(BigInt::from(slice));
     }
-
-    println!("public key for oaep encode: {:?} {:?}", public_key[0].chunks, public_key[1].chunks);
 
     let encrypted_message = rsa_encrypt(rsa_message, public_key);
 
@@ -348,14 +339,10 @@ mod tests {
         let auth_data = "VASCO";
         
         let encoded_message = oaep_encode(message.as_bytes(), auth_data.as_bytes());
-        println!("encoded_message {:?}", encoded_message);
         let mut decoded_message = oaep_decode(&encoded_message, auth_data.as_bytes());
         
         let binding = String::from_utf8(decoded_message).unwrap();
         let text_decoded_message = binding.trim_matches(char::from(0));
-        
-        println!("encoded_message {:?}", encoded_message);
-        println!("decoded_message {}", text_decoded_message);
 
         assert_eq!(message, text_decoded_message);
     }

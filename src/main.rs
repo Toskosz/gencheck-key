@@ -50,23 +50,16 @@ fn rsa_oaep_encode() {
 
     let data = rsa::rsa_oaep_encode(message, auth_data, key_in_bytes);
 
-    println!("data size: {}", data.len());
     fs::write("/home/thiago/gencheck-key/results/rsa_encoded_message.txt", data).expect("Unable to write file");
 }
 
 fn generate_rsa_keys() {
     let key_pair = rsa::generate_keypair();
 
-    println!("public key: {:?} {:?}", key_pair.public_key[0].chunks, key_pair.public_key[1].chunks);
-    println!("private key: {:?} {:?}", key_pair.private_key[0].chunks, key_pair.private_key[1].chunks);
-
-
     let public_key = main_utils::parse_key_to_byte(key_pair.public_key);
     let private_key = main_utils::parse_key_to_byte(key_pair.private_key);
     let public_key_in_right_order = main_utils::byte_reverse(&public_key);
     let private_key_in_right_order = main_utils::byte_reverse(&private_key);
-
-    println!("public key: {:?}", public_key_in_right_order);
 
     fs::write("/home/thiago/gencheck-key/results/rsa_public_key.txt", public_key_in_right_order).expect("Unable to write file");
     fs::write("/home/thiago/gencheck-key/results/rsa_private_key.txt", private_key_in_right_order).expect("Unable to write file");
