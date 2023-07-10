@@ -54,6 +54,8 @@ Para decodificar mensagem RSA:
 cargo run -- rsa_oaep_aes_decode
 ```
 
+Alternativamente pode-se executar o código somente com seu executável, desde que tenha o rust instalado e a pasta results no mesmo local do executavel com os arquivos .txt necesśarios
+
 ## Autores
 
 Thiago Tokarski 190096063
