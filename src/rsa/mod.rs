@@ -8,6 +8,8 @@ use crate::rsa::primes::are_coprimes;
 use crate::rsa::utils::insert_random_bytes;
 use crate::main_utils::transform_u64_to_array_of_u8;
 use crate::main_utils::reverse;
+use crate::main_utils::parse_to_byte;
+use crate::main_utils::byte_reverse;
 
 use hex_literal::hex;
 use sha2::{Sha256, Digest};
@@ -16,6 +18,56 @@ pub struct KeyPair {
     pub public_key: Vec<BigInt>,
     pub private_key: Vec<BigInt>,
 }
+
+pub fn rsa_oaep_decode(encoded_message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
+    let encoded_message_bigint_order = byte_reverse(&encoded_message);
+    let key_bigint_order = byte_reverse(&key);
+
+    let mut private_key: Vec<BigInt> = Vec::new();
+    for (i, slice) in key_bigint_order.chunks(256).enumerate() {
+        private_key.push(BigInt::from(slice));
+    }
+    
+    println!("private key for oaep decode: {:?} {:?}", private_key[0].chunks, private_key[1].chunks);
+
+    let rsa_decoded_message = rsa_decrypt(BigInt::from(&encoded_message_bigint_order), private_key);
+    let oaep_encoded_message_bigint_order = parse_to_byte(&rsa_decoded_message);
+    let oaep_encoded_message = byte_reverse(&oaep_encoded_message_bigint_order);
+
+    let oaep_decoded_message = oaep_decode(&oaep_encoded_message[128..], &auth_data);
+    
+    return oaep_decoded_message;
+}
+
+pub fn rsa_oaep_encode(message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8>) -> Vec<u8>{
+
+    let key_bigint_order = byte_reverse(&key);
+
+    println!("key_bigint_order: {:?}", key_bigint_order);
+
+    let oaep_encoded_message = oaep_encode(&message, &auth_data);
+
+    let reversed_message = byte_reverse(&oaep_encoded_message);
+
+    let rsa_message = BigInt::from(&reversed_message);
+
+    let mut public_key: Vec<BigInt> = Vec::new();
+
+    println!("key_bigint_order size: {:?}", key_bigint_order.len());
+
+    for (i, slice) in key_bigint_order.chunks(256).enumerate() {
+        println!("slice: {:?}", slice);
+        public_key.push(BigInt::from(slice));
+    }
+
+    println!("public key for oaep encode: {:?} {:?}", public_key[0].chunks, public_key[1].chunks);
+
+    let encrypted_message = rsa_encrypt(rsa_message, public_key);
+
+    let encrypted_message_bytes = parse_to_byte(&encrypted_message);
+    return byte_reverse(&encrypted_message_bytes);
+}
+
 
 pub fn generate_keypair() -> KeyPair {
     let p = prime_512_bit();
@@ -106,8 +158,8 @@ fn concat_db(phash: &[u8], ps: &[u8], message: &[u8]) -> [u8; 95] {
     return concat;
 }
 
-fn concat_encoded_message(masked_seed: &[u8], masked_db: &[u8]) -> [u8; 128] {
-    let mut result: [u8; 128] = [0;128];
+fn concat_encoded_message(masked_seed: &[u8], masked_db: &[u8]) -> Vec<u8> {
+    let mut result: Vec<u8> = vec![0;128];
     result[0] = 0x00;
     let mut i = 1;
     for byte in masked_seed {
@@ -152,7 +204,7 @@ fn mgf(input: &[u8], output_length: u128) -> Vec<u8>{
     return t[0..output_length as usize].to_vec();
 }
 
-pub fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
+fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
     if encoded_message.len() < 2 * 32 + 1 {
         panic!("Decoding error: encoded message too short");
     }
@@ -218,7 +270,7 @@ pub fn oaep_decode(encoded_message: &[u8], p: &[u8]) -> Vec<u8> {
 
 /// message: message to be encoded, an octet string of length at most 
 /// mLen = emLen − 1 − 2hLen (mLen denotes the length in octets of the message)
-pub fn oaep_encode(message: &[u8], auth_data: &[u8]) -> [u8;128] {
+fn oaep_encode(message: &[u8], auth_data: &[u8]) -> Vec<u8> {
 
     // create a Sha256 object
     let mut hasher = Sha256::new();

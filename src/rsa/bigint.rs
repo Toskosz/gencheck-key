@@ -49,6 +49,16 @@ impl From<u128> for BigInt {
     }
 }
 
+impl From<&Vec<u8>> for BigInt {
+    fn from(bytes: &Vec<u8>) -> Self {
+        let mut chunks = [0; N];
+        for (i, slice) in bytes.chunks(8).enumerate() {
+            chunks[i] = u64::from_le_bytes(slice.try_into().unwrap());
+        }
+        return Self { chunks } ;
+    }
+}
+
 impl From<&[u8]> for BigInt {
     fn from(bytes: &[u8]) -> Self {
         let mut chunks = [0; N];

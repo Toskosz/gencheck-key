@@ -1,5 +1,5 @@
-mod utils;
-mod core;
+pub mod utils;
+pub mod core;
 use crate::aes_gcm::core::*;
 use crate::aes_gcm::utils::*;
 use rand::Rng;

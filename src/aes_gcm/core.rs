@@ -242,8 +242,8 @@ pub fn aes_decrypt(state: &mut [u32], expanded_key: &[u32]) {
     add_round_key(state, &expanded_key[key_index .. key_index+4])
 }
 
-pub fn core_encrypt(plain_text: &mut Vec<u8>, key: &String) -> Vec<u8> {
-    let expkey = key_expansion(key.as_bytes());
+pub fn core_encrypt(plain_text: &mut Vec<u8>, key: &Vec<u8>) -> Vec<u8> {
+    let expkey = key_expansion(key);
     pad_to_128(plain_text);
     let mut cipher_text: Vec<u8> = vec![];
     
@@ -265,8 +265,8 @@ pub fn core_encrypt(plain_text: &mut Vec<u8>, key: &String) -> Vec<u8> {
 }
 
 // A "correct" cipher text is always of size multiple of 128 bits.
-pub fn core_decrypt(cipher_text: &Vec<u8>, key: &String) -> Vec<u8> {
-    let expkey = key_expansion(key.as_bytes());
+pub fn core_decrypt(cipher_text: &Vec<u8>, key: &Vec<u8>) -> Vec<u8> {
+    let expkey = key_expansion(key);
     let mut plain_text: Vec<u8> = vec![];
     
     // intermediary variables
