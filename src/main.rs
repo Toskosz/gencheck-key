@@ -7,6 +7,8 @@ use crate::aes_gcm::core::generate_128bit_key;
 use crate::aes_gcm::core::core_encrypt;
 use crate::aes_gcm::core::core_decrypt;
 
+use base64::{Engine as _, engine::general_purpose};
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -74,7 +76,9 @@ fn aes_encode() {
     let mut input = std::fs::read("./results/aes_message.txt").expect("Unable to read file");
     let output = core_encrypt(&mut input, &key);
 
-    fs::write("./results/aes_encoded_message.txt", output).expect("Unable to write file");
+    let base_64_encoded: String = general_purpose::STANDARD_NO_PAD.encode(output);
+
+    fs::write("./results/aes_encoded_message.txt", base_64_encoded).expect("Unable to write file");
 }
 
 fn aes_decode() {
@@ -84,6 +88,9 @@ fn aes_decode() {
     }
     
     let mut input = std::fs::read("./results/aes_encoded_message.txt").expect("Unable to read file");   
+    
+    input = general_purpose::STANDARD_NO_PAD.decode(input).unwrap();
+    
     let output = core_decrypt(&mut input, &key);
 
     fs::write("./results/aes_decoded_message.txt", output).expect("Unable to write file");

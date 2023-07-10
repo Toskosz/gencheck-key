@@ -23,7 +23,7 @@ pub fn prime_512_bit() -> BigInt {
             }
         }
 
-        if miller_rabin_test(num, 10) == utils::PrimeResult::ProbablePrime {
+        if miller_rabin_test(num, 40) == utils::PrimeResult::ProbablePrime {
             return num;
         }
     }
