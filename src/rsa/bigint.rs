@@ -28,7 +28,7 @@ impl BigInt {
     }
 
     pub fn random() -> Self {
-        let mut bytes = [0; 512 / 8];
+        let mut bytes = [0; 1024 / 8];
         insert_random_bytes(&mut bytes).expect("Failed to generate random bytes");
         return Self::from(bytes.as_slice());
     }

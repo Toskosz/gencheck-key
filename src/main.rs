@@ -32,27 +32,40 @@ fn main() {
 
 fn generate_aes_key(){
     let key = generate_128bit_key();
-    fs::write("./results/aes_key.txt", key).expect("Unable to write file");
+    let base_64_encoded: String = general_purpose::STANDARD_NO_PAD.encode(key);
+    fs::write("./results/aes_key.txt", base_64_encoded).expect("Unable to write file");
 }
 
 fn rsa_oaep_decode() {
-    let encoded_message = std::fs::read("./results/rsa_encoded_message.txt").expect("Unable to read file");
+    let mut encoded_message = std::fs::read("./results/rsa_encoded_message.txt").expect("Unable to read file");
+    encoded_message = general_purpose::STANDARD_NO_PAD.decode(encoded_message).unwrap();
+
     let auth_data = std::fs::read("./results/rsa_auth_data.txt").expect("Unable to read file");
-    let key_in_bytes = std::fs::read("./results/rsa_private_key.txt").expect("Unable to read file");
+    let mut key_in_bytes = std::fs::read("./results/rsa_private_key.txt").expect("Unable to read file");
+
+    key_in_bytes = general_purpose::STANDARD_NO_PAD.decode(key_in_bytes).unwrap();
 
     let data = rsa::rsa_oaep_decode(encoded_message, auth_data, key_in_bytes);
 
-    fs::write("./results/rsa_decoded_message.txt", data).expect("Unable to write file");
+    let base_64_encoded: String = general_purpose::STANDARD_NO_PAD.encode(data);
+
+    fs::write("./results/rsa_decoded_message.txt", base_64_encoded).expect("Unable to write file");
 }
 
 fn rsa_oaep_encode() {
-    let message = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    let mut message = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    message = general_purpose::STANDARD_NO_PAD.decode(message).unwrap();
+
     let auth_data = std::fs::read("./results/rsa_auth_data.txt").expect("Unable to read file");
-    let key_in_bytes = std::fs::read("./results/rsa_public_key.txt").expect("Unable to read file");
+
+    let mut key_in_bytes = std::fs::read("./results/rsa_public_key.txt").expect("Unable to read file");
+    key_in_bytes = general_purpose::STANDARD_NO_PAD.decode(key_in_bytes).unwrap();
 
     let data = rsa::rsa_oaep_encode(message, auth_data, key_in_bytes);
 
-    fs::write("./results/rsa_encoded_message.txt", data).expect("Unable to write file");
+    let base_64_encoded: String = general_purpose::STANDARD_NO_PAD.encode(data);
+
+    fs::write("./results/rsa_encoded_message.txt", base_64_encoded).expect("Unable to write file");
 }
 
 fn generate_rsa_keys() {
@@ -63,12 +76,17 @@ fn generate_rsa_keys() {
     let public_key_in_right_order = main_utils::byte_reverse(&public_key);
     let private_key_in_right_order = main_utils::byte_reverse(&private_key);
 
-    fs::write("./results/rsa_public_key.txt", public_key_in_right_order).expect("Unable to write file");
-    fs::write("./results/rsa_private_key.txt", private_key_in_right_order).expect("Unable to write file");
+    let base_64_encoded_p: String = general_purpose::STANDARD_NO_PAD.encode(public_key_in_right_order);
+    let base_64_encoded_s: String = general_purpose::STANDARD_NO_PAD.encode(private_key_in_right_order);
+
+    fs::write("./results/rsa_public_key.txt", base_64_encoded_p).expect("Unable to write file");
+    fs::write("./results/rsa_private_key.txt", base_64_encoded_s).expect("Unable to write file");
 }
 
 fn aes_encode() {
-    let key = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    let mut key = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    key = general_purpose::STANDARD_NO_PAD.decode(key).unwrap();
+
     if key.len() != 16 {
         panic!("Key must be 16 bytes long");
     }
@@ -82,7 +100,8 @@ fn aes_encode() {
 }
 
 fn aes_decode() {
-    let key = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    let mut key = std::fs::read("./results/aes_key.txt").expect("Unable to read file");
+    key = general_purpose::STANDARD_NO_PAD.decode(key).unwrap();
     if key.len() != 16 {
         panic!("Key must be 16 bytes long");
     }

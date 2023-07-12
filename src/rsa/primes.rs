@@ -2,7 +2,7 @@ use crate::rsa::utils;
 use crate::rsa::bigint::BigInt;
 use crate::rsa::bigint::gcd;
 
-pub fn prime_512_bit() -> BigInt {
+pub fn prime_1024_bit() -> BigInt {
     const P: usize = 5000;
 
     let primes = utils::generate_small_primes::<P>();
@@ -42,7 +42,7 @@ fn miller_rabin_test(n: BigInt, k:usize) -> utils::PrimeResult {
         s = s.increase();
     }
 
-    let mut bytes = [0; (512/16)];
+    let mut bytes = [0; (1024/16)];
     let mut x;
     let mut base;
 

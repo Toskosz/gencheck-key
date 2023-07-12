@@ -3,7 +3,7 @@ mod primes;
 mod utils;
 
 use crate::rsa::bigint::BigInt;
-use crate::rsa::primes::prime_512_bit;
+use crate::rsa::primes::prime_1024_bit;
 use crate::rsa::primes::are_coprimes;
 use crate::rsa::utils::insert_random_bytes;
 use crate::main_utils::transform_u64_to_array_of_u8;
@@ -61,8 +61,8 @@ pub fn rsa_oaep_encode(message: Vec<u8>, auth_data: Vec<u8>, key: Vec<u8>) -> Ve
 
 
 pub fn generate_keypair() -> KeyPair {
-    let p = prime_512_bit();
-    let q = prime_512_bit();
+    let p = prime_1024_bit();
+    let q = prime_1024_bit();
 
     let n = p * q;
     let phi = (p.decrease()) * (q.decrease());
